@@ -1,0 +1,18 @@
+[Unit]
+Description=Vision-Exp TP4 worker (rank %i)
+After=network.target docker.service
+Wants=docker.service
+Conflicts=vllm-glm53-worker@%i.service vllm-tp4-worker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=<user>
+Group=<user>
+TimeoutStartSec=300
+Environment=NODE_RANK=%i
+ExecStart=/bin/bash -c 'cd /home/<user>/v4v-test && NO_WAIT=1 bash start_v4v_worker.sh'
+ExecStop=/usr/bin/docker rm -f vllm-v4v-tp4-rank%i
+
+[Install]
+WantedBy=multi-user.target

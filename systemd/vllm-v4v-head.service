@@ -1,0 +1,20 @@
+[Unit]
+Description=DeepSeek-V4-Flash-Vision-Exp TP4 head (rank0, n1, :8890)
+After=network.target docker.service
+Wants=docker.service
+# 与 GLM/DeepSeek 单元互斥: 切 lane 前必须 disable 本单元 (见维护手册)
+Conflicts=vllm-glm53-head.service vllm-tp4-head.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=<user>
+Group=<user>
+TimeoutStartSec=300
+ExecStart=/bin/bash -c 'cd /home/<user>/v4v-test && NO_WAIT=1 bash start_v4v_head.sh'
+# head 拉起后 monitor 后台跟随容器 (docker wait -> 全链重建); 留在本单元 cgroup, 单元停止时同灭
+ExecStartPost=/bin/bash -c 'nohup /bin/bash /home/<user>/v4v-test/monitor_v4v_head.sh >/dev/null 2>&1 &'
+ExecStop=/usr/bin/docker rm -f vllm-v4v-tp4-rank0
+
+[Install]
+WantedBy=multi-user.target

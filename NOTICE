@@ -1,0 +1,37 @@
+# NOTICE
+
+This project (deployment scripts, systemd units, self-healing monitor) builds on
+and borrows from the following open-source work. Attribution per license terms:
+
+## tonyd2wild/DeepSeek-v4-Flash-Vision-Exp-DSpark-1M-NVFP4-KV-2x-DGX-Spark
+
+- Copyright (c) 2026 Tony Deangelo
+- License: MIT
+- Used for: vision port design (ViT + Aligner bind-mount layout), engine parameter
+  set (DSpark k=5, seqs 64, gmu, nvfp4 KV), build-ds4v-files.sh generation flow,
+  patch 3/4 overlays, and the launcher structure from which `scripts/` is derived.
+
+## luxingcom/LuZ0.4.5-DeepSeek-v4-Flash-DGXspark-TP4-Ring
+
+- License: Apache-2.0
+- Used for: switchless-ring NCCL environment block (GID=-1 discipline, PEER_HCA
+  per-rank mapping, SUBNET_AWARE_ROUTING), gid_preflight concept, self-healing
+  systemd architecture (monitor + hang probe + cooldown), benchmark methodology.
+
+## vllm-project/vllm
+
+- License: Apache-2.0
+- Note: this repository ships no vLLM-derived files. The vision bind-mounts
+  (`ds4v_model.py`, `ds4v_registry.py`) are generated at deploy time from the
+  runtime image by the upstream build-ds4v-files.sh script, per the upstream
+  project's own design.
+
+## NVIDIA Developer Forums community
+
+- Practical 4× GB10 switchless-ring evidence (first-collective deadlock behaviour,
+  GID drift reports) used to harden the operations layer.
+
+---
+
+All IP addresses, hostnames and credentials in this repository are placeholders.
+No weights, images, or NCCL binaries are redistributed here.

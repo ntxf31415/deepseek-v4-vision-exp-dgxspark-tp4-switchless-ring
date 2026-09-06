@@ -1,0 +1,10 @@
+[Unit]
+Description=Vision-Exp TP4 hang probe (60s)
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=60s
+Unit=vllm-v4v-healthcheck.service
+
+[Install]
+WantedBy=timers.target

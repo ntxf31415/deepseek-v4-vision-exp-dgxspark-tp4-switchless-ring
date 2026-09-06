@@ -1,0 +1,7 @@
+[Unit]
+Description=Vision-Exp TP4 hang probe (8890, oneshot)
+
+[Service]
+Type=oneshot
+User=<user>
+ExecStart=/bin/bash /home/<user>/v4v-test/hang_probe_v4v.sh
