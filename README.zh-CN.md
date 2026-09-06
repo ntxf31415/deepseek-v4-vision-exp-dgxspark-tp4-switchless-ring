@@ -20,6 +20,8 @@
 
 ---
 
+> **姊妹项目**：[GLM-5.3-Flash NVFP4 TP4 无交换机环网](https://github.com/ntxf31415/glm-5.3-flash-nvfp4-4x-dgx-spark-switchless) —— 同一套 4×DGX Spark 环网基座上的 GLM-5.3-Flash 配方（部署说明 + 差分项清单）。复用同一套环网基础设施的配套项目。
+
 ## 这是什么
 
 一个**部署与运维层**，不是引擎。配方组成：
