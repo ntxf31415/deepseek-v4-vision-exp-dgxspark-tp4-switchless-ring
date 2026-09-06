@@ -4,7 +4,19 @@
 
 > English: [README.md](README.md) · Agent 快速上手指南：[AGENTS.md](AGENTS.md)
 
-**实测（4× DGX Spark / GB10 / sm_121a）**：单流 decode 峰值 107.8 tok/s、prefill 1.6–2.5K tok/s（8K–100K）、KV 池 ~7.9M tokens（gmu 0.82）、原生图片输入验证通过。完整基准见 [docs/benchmarks.md](docs/benchmarks.md)。
+**实测（4× DGX Spark / GB10 / sm_121a，无交换机环网，gmu 0.82）：**
+
+| 基准（单流，temp 0） | 数值 |
+|---|---|
+| decode 峰 / 均 | **107.8 / 80.4** tok/s |
+| prefill 8K / 32K / 100K | 1666 / 2486 / 2361 t/s |
+| 聚合 c1 / c4 / c8 / c12 | 75 / 233 / 222 / 266 tok/s |
+| KV 池 | **7,877,455 tokens** |
+| thinking ON（按请求开启） | decode 持平，c6–c12 聚合 **+45~85%**，输出 token 3–7 倍 |
+| 冷启动 | ~12 分钟（autotune 缓存命中后 ~2s） |
+| 原生图片输入 | 验证通过（红左蓝右） |
+
+完整表格（含 thinking ON/OFF 对比）：[docs/benchmarks.md](docs/benchmarks.md)。
 
 ---
 

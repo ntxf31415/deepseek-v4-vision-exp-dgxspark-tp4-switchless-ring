@@ -7,9 +7,19 @@ self-healing systemd stack.
 
 > 中文说明：[README.zh-CN.md](README.zh-CN.md) · Agent quick-start: [AGENTS.md](AGENTS.md)
 
-**Measured on 4× DGX Spark (GB10, sm_121a):** single-stream decode 107.8 tok/s peak,
-prefill 1.6–2.5K tok/s (8K–100K), KV pool ~7.9M tokens @ gmu 0.82, native image
-input verified. Full benchmarks: [docs/benchmarks.md](docs/benchmarks.md).
+**Measured on 4× DGX Spark (GB10, sm_121a, switchless ring), gmu 0.82:**
+
+| benchmark (single stream, temp 0) | value |
+|---|---|
+| decode peak / mean | **107.8 / 80.4** tok/s |
+| prefill 8K / 32K / 100K | 1666 / 2486 / 2361 t/s |
+| aggregate c1 / c4 / c8 / c12 | 75 / 233 / 222 / 266 tok/s |
+| KV pool | **7,877,455 tokens** |
+| thinking ON (per-request) | decode parity, c6–c12 aggregate **+45~85%**, 3–7× tokens |
+| cold start | ~12 min (autotune cached, ~2s) |
+| native image input | verified (red-left / blue-right) |
+
+Full tables incl. thinking ON/OFF: [docs/benchmarks.md](docs/benchmarks.md).
 
 ---
 
