@@ -46,7 +46,8 @@ knowledge required to run the above on a switchless 4-node ring.
 # 3. Generate the 6 patch files on every node (upstream script, not shipped here):
 #    clone the Tony repo, run vision-exp/build-ds4v-files.sh <image-tag> /var/tmp
 #    plus stage patch3-scheduler.py and spec-dspark.py from recipe/overlay/
-# 4. Edit scripts/config.env: node IPs, model path, ring subnet
+# 4. Edit the placeholder variables in scripts/ (${N1_IP}, ${N2_IP}, ${N3_IP}, ${N4_IP},
+#    model path, PEER_HCA maps) to match your wiring
 # 5. Install systemd units (see systemd/) and start workers first:
 for rank in 3 2 1; do ssh node-for-rank-$rank "sudo systemctl start vllm-v4v-worker@$rank"; done
 sudo systemctl start vllm-v4v-head.service   # ~12 min cold start

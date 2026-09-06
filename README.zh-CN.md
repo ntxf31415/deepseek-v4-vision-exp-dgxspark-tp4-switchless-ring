@@ -37,7 +37,8 @@
 # 3. 各节点生成 6 个补丁文件（用上游脚本，本仓库不随附）：
 #    clone Tony 仓库，运行 vision-exp/build-ds4v-files.sh <image-tag> /var/tmp
 #    再从 recipe/overlay/ 放置 patch3-scheduler.py 与 spec-dspark.py
-# 4. 编辑 scripts/config.env：节点 IP、模型路径、环网子网
+# 4. 编辑 scripts/ 内的占位变量（${N1_IP} 等四个节点 IP、模型路径、PEER_HCA 映射）
+#    使其匹配你的接线
 # 5. 安装 systemd 单元（见 systemd/），worker 先起：
 for rank in 3 2 1; do ssh rank-$rank 对应节点 "sudo systemctl start vllm-v4v-worker@$rank"; done
 sudo systemctl start vllm-v4v-head.service   # 冷启动约 12 分钟
