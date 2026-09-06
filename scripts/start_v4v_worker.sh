@@ -184,8 +184,9 @@ docker run -d --name "$NAME" \
   --shm-size=64gb --ulimit memlock=-1 --ulimit stack=67108864 --ulimit nofile=1048576 \
   --memory 112g --memory-swap 112g \
   --log-opt max-size=100m --log-opt max-file=3 \
-  --health-cmd "pgrep -f VLLM::EngineCore >/dev/null 2>&1 || exit 1" \
+  --health-cmd "sh /healthcheck.sh" \
   --health-interval 30s --health-timeout 10s --health-retries 5 --health-start-period 900s \
+  -v "${HC_SCRIPT:-/home/<user>/v4v-test/hc_v4v.sh}:/healthcheck.sh:ro" \
   -v "$MODEL_DIR:/models:ro" \
   -v /var/tmp/patch3-scheduler.py:/opt/env/lib/python3.12/site-packages/vllm/v1/core/sched/scheduler.py:ro \
   -v /var/tmp/spec-dspark.py:/opt/env/lib/python3.12/site-packages/vllm/v1/spec_decode/dspark.py:ro \

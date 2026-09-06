@@ -61,3 +61,14 @@ Everything below was hit and fixed in production on 4× DGX Spark (switchless ri
 15. **Never reboot with two lane units enabled.** Old lane units left enabled
     will auto-start and fight the active lane for GPUs/ring. Disable retired
     lanes (`systemctl disable`) as part of retirement.
+16. **`pgrep` healthcheck fails on this minimal image → containers always
+    `unhealthy`.** The image has no `pgrep`/`ps`, so
+    `--health-cmd "pgrep -f VLLM::EngineCore ..."` exits 1 every time (false
+    negative; the engine is fine). Fix: mount `scripts/hc_v4v.sh` and use
+    `--health-cmd "sh /healthcheck.sh"` — it scans `/proc/*/cmdline` for a
+    `VLLM::` prefix. Two gotchas: (a) head(rank0) runs `VLLM::EngineCore` +
+    `VLLM::Worker_TP0` but headless workers run only `VLLM::Worker_TP{n}` and
+    have no `/health` endpoint, so match the `VLLM::` prefix, not one specific
+    name; (b) build the target string via `chr()` concatenation or the probe's
+    own `python -c` cmdline matches itself and reports healthy even when the
+    engine is dead.
