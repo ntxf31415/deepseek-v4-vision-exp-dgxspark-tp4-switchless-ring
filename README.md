@@ -23,6 +23,8 @@ Full tables incl. thinking ON/OFF: [docs/benchmarks.md](docs/benchmarks.md).
 
 ---
 
+> **Sister project:** [GLM-5.3-Flash NVFP4 TP4 switchless-ring](https://github.com/ntxf31415/glm-5.3-flash-nvfp4-4x-dgx-spark-switchless) — the same 4x DGX Spark ring base with a GLM-5.3-Flash recipe (deployment guide + delta checklist). Companion project reusing this ring infrastructure.
+
 ## What this is
 
 A deployment + operations layer, not an engine. The recipe combines:
