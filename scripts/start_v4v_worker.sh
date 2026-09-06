@@ -7,7 +7,7 @@
 # 其余说明同 start_v4v_head.sh (环网 env 同生产 v2.0-luz045-r1)
 # =============================================================
 set -euo pipefail
-export HOME=/home/<user>
+export HOME="/home/<user>"
 
 NODE_RANK="${NODE_RANK:-}"
 # 内置 rank→IP 映射 (物理环序: 1=.56 / 2=.58 / 3=.57); 显式传入优先
@@ -30,9 +30,12 @@ HOST_IP="$VLLM_HOST_IP"
 
 # ---- PEER_HCA per-rank (环网接线专属, 与生产 worker 一致) ----
 case "$NODE_RANK" in
-  1) PEER_HCA='${RING_PEER_HCA_RANKx}'  # 环网接线专属, 按物理环序自行填写 ;;
-  2) PEER_HCA='${RING_PEER_HCA_RANKx}'  # 环网接线专属, 按物理环序自行填写 ;;
-  3) PEER_HCA='${RING_PEER_HCA_RANKx}'  # 环网接线专属, 按物理环序自行填写 ;;
+  # 环网接线专属: 按物理环序填本 rank 两个邻居的 HCA 口（见 docs/pitfalls 与 README 接线图）。
+  # 格式示例（rank1 连 rank0+rank2，两组各用 f1/f0 对应口）:
+  #   PEER_HCA='0=rocep1s0f1,roceP2p1s0f1;2=rocep1s0f0,roceP2p1s0f0'
+  1) PEER_HCA='<rank0_ifaces>;<rank2_ifaces>' ;;
+  2) PEER_HCA='<rank1_ifaces>;<rank3_ifaces>' ;;
+  3) PEER_HCA='<rank0_ifaces>;<rank2_ifaces>' ;;
   *) echo "ERROR: NODE_RANK 须为 1/2/3" >&2; exit 1 ;;
 esac
 

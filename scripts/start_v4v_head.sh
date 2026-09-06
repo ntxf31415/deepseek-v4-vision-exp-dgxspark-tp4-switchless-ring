@@ -14,7 +14,7 @@
 # 启动顺序: worker 3→2→1 后 head 0 (Tony 验证顺序; 与生产 head-first 相反)
 # =============================================================
 set -euo pipefail
-export HOME=/home/<user>
+export HOME="/home/<user>"
 
 [ "$(hostname)" = "n1" ] || { echo "ERROR: 本脚本仅可在 n1 运行" >&2; exit 1; }
 
@@ -148,7 +148,9 @@ ENV_ARGS=(
   -e 'NCCL_SKIP_TREE_CONNECT=1'
   -e 'NCCL_TUNER_THRESHOLD=40960'
   -e 'NCCL_MAX_NCHANNELS=4'
-  -e 'NCCL_IB_PEER_HCA=${RING_PEER_HCA}'
+# NCCL_IB_PEER_HCA: head(rank0) 按物理环序填两个邻居的 HCA 口, 例:
+#   -e 'NCCL_IB_PEER_HCA=1=rocep1s0f1,roceP2p1s0f1;3=rocep1s0f0,roceP2p1s0f0'
+  -e 'NCCL_IB_PEER_HCA=<rank1_ifaces>;<rank3_ifaces>'
   -e 'NCCL_SOCKET_IFNAME=enP7s7'
   -e 'NCCL_BUFFSIZE=8388608'
   -e 'NCCL_CUMEM_HOST_ENABLE=0'
