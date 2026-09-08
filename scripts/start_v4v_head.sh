@@ -2,7 +2,7 @@
 # =============================================================
 # SCRIPT: start_v4v_head.sh  (DeepSeek-V4-Flash-Vision-Exp 测试 lane)
 # VERSION: v0.1 (2026-09-05)
-# ROLE: head(rank0) 启动 — n1 (${N1_IP}), 服务 :8888
+# ROLE: head(rank0) 启动 — spark-01 (192.168.50.55), 服务 :8888
 # 上游配方: tonyd2wild/DeepSeek-v4-Flash-Vision-Exp-DSpark-1M-NVFP4-KV-2x-DGX-Spark
 #           launchers/ds4-vision-tp4.sh (TP4, 2026-09-02 验证, k=5, seqs 64)
 # 环网适配: 本环境 LuZ0.4.5 生产环网 env 块 (GID=-1 / PEER_HCA per-rank /
@@ -10,21 +10,21 @@
 # 镜像:    ghcr.io/tonyd2wild/vllm-dspark-runtime:mia-raf-pr1-nvfp4-probe-c-keys-concurrency-p2b
 #           (回退: 本机 vllm-dspark-runtime:dspark-nvfp4-stage-c, 同 vLLM 版本)
 # 前置:    /var/tmp 六个补丁文件 (build-ds4v-files.sh + recipe/overlay 两个),
-#           模型 /home/<user>/models/DeepSeek-V4-Flash-Vision-Exp
+#           模型 /home/spark/models/DeepSeek-V4-Flash-Vision-Exp
 # 启动顺序: worker 3→2→1 后 head 0 (Tony 验证顺序; 与生产 head-first 相反)
 # =============================================================
 set -euo pipefail
-export HOME="/home/<user>"
+export HOME=/home/spark
 
-[ "$(hostname)" = "n1" ] || { echo "ERROR: 本脚本仅可在 n1 运行" >&2; exit 1; }
+[ "$(hostname)" = "spark-01" ] || { echo "ERROR: 本脚本仅可在 spark-01 运行" >&2; exit 1; }
 
 IMG="${V4V_IMG:-ghcr.io/tonyd2wild/vllm-dspark-runtime:mia-raf-pr1-nvfp4-probe-c-keys-concurrency-p2b}"
 NAME="vllm-v4v-tp4-rank0"
-MODEL_DIR="/home/<user>/models/DeepSeek-V4-Flash-Vision-Exp"
-MASTER_ADDR="${N1_IP}"          # 管理网 IP (bootstrap), collective 走 RoCE 环
+MODEL_DIR="/home/spark/models/DeepSeek-V4-Flash-Vision-Exp"
+MASTER_ADDR="192.168.50.55"          # 管理网 IP (bootstrap), collective 走 RoCE 环
 MASTER_PORT="25998"                  # 独立于生产 25999
 NODE_RANK=0
-HOST_IP="${N1_IP}"
+HOST_IP="192.168.50.55"
 
 # ---- 前置检查 (fail-closed) ----
 docker image inspect "$IMG" >/dev/null 2>&1 || { echo "ERROR: 镜像缺失 $IMG" >&2; exit 2; }
@@ -34,7 +34,7 @@ for p in rocep1s0f0 rocep1s0f1 roceP2p1s0f0 roceP2p1s0f1; do
   if [ -f "$g" ] && grep -qE '^0{32}$' "$g"; then echo "ERROR: $p GID 全零 (对端断电/NM 撤 IP?)" >&2; exit 5; fi
 done
 [ -d "$MODEL_DIR" ] || { echo "ERROR: 模型缺失 $MODEL_DIR" >&2; exit 3; }
-for f in patch3-scheduler.py spec-dspark.py ds4v_model.py ds4v_vision.py ds4v_mm.py ds4v_registry.py; do
+for f in patch3-scheduler.py spec-dspark.py ds4v_model.py ds4v_vision.py ds4v_mm.py ds4v_registry.py flashmla_sparse.py; do
   [ -f "/var/tmp/$f" ] || { echo "ERROR: 缺补丁文件 /var/tmp/$f (先在 head 跑 build-ds4v-files.sh 并分发)" >&2; exit 4; }
 done
 
@@ -150,9 +150,7 @@ ENV_ARGS=(
   -e 'NCCL_SKIP_TREE_CONNECT=1'
   -e 'NCCL_TUNER_THRESHOLD=40960'
   -e 'NCCL_MAX_NCHANNELS=4'
-# NCCL_IB_PEER_HCA: head(rank0) 按物理环序填两个邻居的 HCA 口, 例:
-#   -e 'NCCL_IB_PEER_HCA=1=rocep1s0f1,roceP2p1s0f1;3=rocep1s0f0,roceP2p1s0f0'
-  -e 'NCCL_IB_PEER_HCA=<rank1_ifaces>;<rank3_ifaces>'
+  -e 'NCCL_IB_PEER_HCA=1=rocep1s0f1,roceP2p1s0f1;3=rocep1s0f0,roceP2p1s0f0'
   -e 'NCCL_SOCKET_IFNAME=enP7s7'
   -e 'NCCL_BUFFSIZE=8388608'
   -e 'NCCL_CUMEM_HOST_ENABLE=0'
@@ -180,7 +178,7 @@ docker run -d --name "$NAME" \
   --log-opt max-size=100m --log-opt max-file=3 \
   --health-cmd "sh /healthcheck.sh" \
   --health-interval 30s --health-timeout 10s --health-retries 5 --health-start-period 900s \
-  -v "${HC_SCRIPT:-/home/<user>/v4v-test/hc_v4v.sh}:/healthcheck.sh:ro" \
+  -v "${HC_SCRIPT:-/home/spark/v4v-test/hc_v4v.sh}:/healthcheck.sh:ro" \
   -v "$MODEL_DIR:/models:ro" \
   -v /var/tmp/patch3-scheduler.py:/opt/env/lib/python3.12/site-packages/vllm/v1/core/sched/scheduler.py:ro \
   -v /var/tmp/spec-dspark.py:/opt/env/lib/python3.12/site-packages/vllm/v1/spec_decode/dspark.py:ro \
@@ -188,6 +186,7 @@ docker run -d --name "$NAME" \
   -v /var/tmp/ds4v_vision.py:/opt/env/lib/python3.12/site-packages/vllm/models/deepseek_v4/nvidia/ds4v_vision.py:ro \
   -v /var/tmp/ds4v_mm.py:/opt/env/lib/python3.12/site-packages/vllm/models/deepseek_v4/nvidia/ds4v_mm.py:ro \
   -v /var/tmp/ds4v_registry.py:/opt/env/lib/python3.12/site-packages/vllm/model_executor/models/registry.py:ro \
+  -v /var/tmp/flashmla_sparse.py:/opt/env/lib/python3.12/site-packages/vllm/v1/attention/backends/mla/flashmla_sparse.py:ro \
   -v "$HOME/.cache/vllm-dspark-v4v:/vllm-cache:rw" \
   -v "$HOME/.cache/huggingface:/cache/huggingface:rw" \
   -v /opt/aicad-prod/lib/libncclpin.so:/opt/libncclpin.so:ro \

@@ -3,18 +3,18 @@
 # SCRIPT: start_v4v_worker.sh  (DeepSeek-V4-Flash-Vision-Exp 测试 lane)
 # VERSION: v0.1 (2026-09-05)
 # USAGE: NODE_RANK=N VLLM_HOST_IP=<ip> bash start_v4v_worker.sh
-# ROLE: worker(rank1/2/3) 启动 — n2/03/04, --headless
+# ROLE: worker(rank1/2/3) 启动 — spark-02/03/04, --headless
 # 其余说明同 start_v4v_head.sh (环网 env 同生产 v2.0-luz045-r1)
 # =============================================================
 set -euo pipefail
-export HOME="/home/<user>"
+export HOME=/home/spark
 
 NODE_RANK="${NODE_RANK:-}"
 # 内置 rank→IP 映射 (物理环序: 1=.56 / 2=.58 / 3=.57); 显式传入优先
 case "${NODE_RANK:-}" in
-  1) VLLM_HOST_IP="${VLLM_HOST_IP:-${N2_IP}}" ;;
-  2) VLLM_HOST_IP="${VLLM_HOST_IP:-${N4_IP}}" ;;
-  3) VLLM_HOST_IP="${VLLM_HOST_IP:-${N3_IP}}" ;;
+  1) VLLM_HOST_IP="${VLLM_HOST_IP:-192.168.50.56}" ;;
+  2) VLLM_HOST_IP="${VLLM_HOST_IP:-192.168.50.58}" ;;
+  3) VLLM_HOST_IP="${VLLM_HOST_IP:-192.168.50.57}" ;;
 esac
 [ -n "$NODE_RANK" ] && [ -n "$VLLM_HOST_IP" ] || {
   echo "ERROR: 需指定 NODE_RANK (如 NODE_RANK=1)" >&2
@@ -23,19 +23,16 @@ esac
 
 IMG="${V4V_IMG:-ghcr.io/tonyd2wild/vllm-dspark-runtime:mia-raf-pr1-nvfp4-probe-c-keys-concurrency-p2b}"
 NAME="vllm-v4v-tp4-rank${NODE_RANK}"
-MODEL_DIR="/home/<user>/models/DeepSeek-V4-Flash-Vision-Exp"
-MASTER_ADDR="${N1_IP}"
+MODEL_DIR="/home/spark/models/DeepSeek-V4-Flash-Vision-Exp"
+MASTER_ADDR="192.168.50.55"
 MASTER_PORT="25998"
 HOST_IP="$VLLM_HOST_IP"
 
 # ---- PEER_HCA per-rank (环网接线专属, 与生产 worker 一致) ----
 case "$NODE_RANK" in
-  # 环网接线专属: 按物理环序填本 rank 两个邻居的 HCA 口（见 docs/pitfalls 与 README 接线图）。
-  # 格式示例（rank1 连 rank0+rank2，两组各用 f1/f0 对应口）:
-  #   PEER_HCA='0=rocep1s0f1,roceP2p1s0f1;2=rocep1s0f0,roceP2p1s0f0'
-  1) PEER_HCA='<rank0_ifaces>;<rank2_ifaces>' ;;
-  2) PEER_HCA='<rank1_ifaces>;<rank3_ifaces>' ;;
-  3) PEER_HCA='<rank0_ifaces>;<rank2_ifaces>' ;;
+  1) PEER_HCA='0=rocep1s0f1,roceP2p1s0f1;2=rocep1s0f0,roceP2p1s0f0' ;;
+  2) PEER_HCA='1=rocep1s0f0,roceP2p1s0f0;3=rocep1s0f1,roceP2p1s0f1' ;;
+  3) PEER_HCA='0=rocep1s0f0,roceP2p1s0f0;2=rocep1s0f1,roceP2p1s0f1' ;;
   *) echo "ERROR: NODE_RANK 须为 1/2/3" >&2; exit 1 ;;
 esac
 
@@ -47,7 +44,7 @@ for p in rocep1s0f0 rocep1s0f1 roceP2p1s0f0 roceP2p1s0f1; do
   if [ -f "$g" ] && grep -qE '^0{32}$' "$g"; then echo "ERROR: $p GID 全零 (对端断电/NM 撤 IP?)" >&2; exit 5; fi
 done
 [ -d "$MODEL_DIR" ] || { echo "ERROR: 模型缺失 $MODEL_DIR" >&2; exit 3; }
-for f in patch3-scheduler.py spec-dspark.py ds4v_model.py ds4v_vision.py ds4v_mm.py ds4v_registry.py; do
+for f in patch3-scheduler.py spec-dspark.py ds4v_model.py ds4v_vision.py ds4v_mm.py ds4v_registry.py flashmla_sparse.py; do
   [ -f "/var/tmp/$f" ] || { echo "ERROR: 缺补丁文件 /var/tmp/$f" >&2; exit 4; }
 done
 
@@ -190,7 +187,7 @@ docker run -d --name "$NAME" \
   --log-opt max-size=100m --log-opt max-file=3 \
   --health-cmd "sh /healthcheck.sh" \
   --health-interval 30s --health-timeout 10s --health-retries 5 --health-start-period 900s \
-  -v "${HC_SCRIPT:-/home/<user>/v4v-test/hc_v4v.sh}:/healthcheck.sh:ro" \
+  -v "${HC_SCRIPT:-/home/spark/v4v-test/hc_v4v.sh}:/healthcheck.sh:ro" \
   -v "$MODEL_DIR:/models:ro" \
   -v /var/tmp/patch3-scheduler.py:/opt/env/lib/python3.12/site-packages/vllm/v1/core/sched/scheduler.py:ro \
   -v /var/tmp/spec-dspark.py:/opt/env/lib/python3.12/site-packages/vllm/v1/spec_decode/dspark.py:ro \
@@ -198,6 +195,7 @@ docker run -d --name "$NAME" \
   -v /var/tmp/ds4v_vision.py:/opt/env/lib/python3.12/site-packages/vllm/models/deepseek_v4/nvidia/ds4v_vision.py:ro \
   -v /var/tmp/ds4v_mm.py:/opt/env/lib/python3.12/site-packages/vllm/models/deepseek_v4/nvidia/ds4v_mm.py:ro \
   -v /var/tmp/ds4v_registry.py:/opt/env/lib/python3.12/site-packages/vllm/model_executor/models/registry.py:ro \
+  -v /var/tmp/flashmla_sparse.py:/opt/env/lib/python3.12/site-packages/vllm/v1/attention/backends/mla/flashmla_sparse.py:ro \
   -v "$HOME/.cache/vllm-dspark-v4v:/vllm-cache:rw" \
   -v "$HOME/.cache/huggingface:/cache/huggingface:rw" \
   -v /opt/aicad-prod/lib/libncclpin.so:/opt/libncclpin.so:ro \

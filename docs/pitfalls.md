@@ -54,7 +54,12 @@ Everything below was hit and fixed in production on 4× DGX Spark (switchless ri
 13. **hang_probe kills cold-booting containers.** After any healthy period, the
     60s probe kills a rebuilding head (health=000 during ~12min boot) → probe↔
     monitor death loop. Fix: container-age guard (≥15min) + liveness guard
-    (<5 log lines in 5min).
+    (<5 log lines in 5min). Since 2026-09-08 a **boot-blindspot branch** was added:
+    if the head has been up ≥30min, never became healthy this boot, and is
+    log-quiet, the probe kills to let self-heal take over. This closes the 09-07
+    machine-reboot gap (STATE stale after reboot → probe never fired). It only
+    fires at age ≥30min (2× cold-start) and log-quiet, so it won't kill a normal
+    long silent boot (autotune/JIT retune).
 14. **Monitor is a detached process.** Stopping the head unit does not kill it;
     any manual restart must `pkill -f 'monitor_v4v[_]head'` first (character
     class avoids pkill self-match).
@@ -100,3 +105,22 @@ Everything below was hit and fixed in production on 4× DGX Spark (switchless ri
     these scripts (`Dgxdual`) is a local convention — change it for your
     network and sync every consumer (portal, dashboards, hermes agents).
 `--api-key` 是 opt-in：不加则 /v1/* 对任何调用者 200。务必设置，且下游同步换 key。
+
+20. **No health/self-heal alerting = the 09-07 blindspot.** With only the hang
+    probe and auto-rebuild, a crash where `/health` stays 200 until the moment of
+    the crash (then the probe's STATE is stale) can go unnoticed — nobody is told
+    the ring is down or looping. Fix (2026-09-08): `v4v_alert.sh` +
+    `vllm-v4v-alert.timer` aggregate four signals (Docker-health FailingStreak≥3,
+    hang-probe kill, monitor rebuild, temp ALARM) into a persistent status file
+    and optionally POST a webhook (`V4V_ALERT_WEBHOOK`). No webhook configured =
+    status/log only; `systemctl disable --now vllm-v4v-alert.timer` reverts.
+20. **nvfp4 KV decode dispatch misses the fp8 fast path.** Older trees route
+    `nvfp4_ds_mla` KV through `_forward_bf16_kv` because
+    `use_fp8_cache = self.kv_cache_dtype == "fp8_ds_mla"` omits nvfp4. On
+    some stacks (Anemll 0.1.1) this is a 16x long-context regression
+    (MiaAI #22); on the 0.21.1rc1 dev line we measured no speed difference
+    (dispatch is still wrong — fix it). Fix: `in ("fp8_ds_mla",
+    "nvfp4_ds_mla")` (Tony 1d57054b, same one-liner). Ship as a bind-mount
+    patch like any other vLLM source patch.
+nvfp4 decode 分发漏掉 fp8 快路径：0.21.1rc1 dev 线实测无性能差异但分发语义错误，
+照 Tony 1d57054b 一行修复，作为挂载补丁分发。
