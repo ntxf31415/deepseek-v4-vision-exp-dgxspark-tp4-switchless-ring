@@ -72,6 +72,7 @@ SERVE_CMD="unset NCCL_IB_ADDR_RANGE NCCL_IB_ADDR_FAMILY NCCL_IB_ROCE_VERSION_NUM
       --enable-prefix-caching \
       --async-scheduling \
       --enable-chunked-prefill \
+      --long-prefill-token-threshold 1024 \
       --speculative-config '{\"method\":\"dspark\",\"num_speculative_tokens\":5,\"draft_sample_method\":\"probabilistic\"}' \
       --tokenizer-mode deepseek_v4 \
       --distributed-executor-backend mp \

@@ -37,3 +37,31 @@ answer is eaten by the thinking budget.
 机制：思考 token 高度可预测 → 投机接受率提升。代价：输出 token 3–7 倍；下游
 max_tokens 需 ≥16K，否则答案被思考预算吃光。
 
+
+## prefill-throttle retest (2026-09-08, `--long-prefill-token-threshold 1024`)
+
+Same bench_full_uuid protocol, same engine defaults. Fix targets the
+"new session enters → in-flight decode starves" bug (see pitfalls #17):
+chunked prefill was consuming the whole per-step token budget, starving
+decode for up to ~3.1s per token in the worst observed case.
+
+| metric | baseline (9-05) | LPT 1024 | Δ |
+|---|---:|---:|---:|
+| decode peak / mean | 107.8 / 80.4 | 107.7 / 82.8 | parity / 持平 |
+| c1 | 74.9 | 80.0 | +7% |
+| c2 | 63.7 (dip) | **132.0** | **+107%, dip gone** |
+| c4 | 233.3 | 227.0 | −3% |
+| c6 | 165.8 | **302.2** | **+82%** |
+| c8 | 221.8 | **395.3** | **+78%** |
+| c12 | 266.0 | **378.2** | **+42%** |
+| prefill 8K / 32K / 100K | 1666 / 2486 / 2361 | 2061 / 2163 / 2085 | 8K +24%, 32K −13%, 100K −12% |
+
+Injection test (in-flight 22K decode + new 20K cache-miss session):
+ITL peak 3078ms → **666ms**, p99 3044ms → 534ms.
+
+Trade-off: long-prefill absolute throughput −12~13% (finer chunking, more
+scheduler steps); a clear net win for multi-session long-context workloads.
+Same direction as MiaAI-Lab #27 fix (`long_prefill_token_threshold`, their
+value: 1024).
+节流复测：并发聚合大涨（c6/c8 +78~82%、c2 凹陷消失），单流持平，长 prefill
+吞吐 −12~13% 为分片代价。与 MiaAI-Lab #27 修复同向（同值 1024）。

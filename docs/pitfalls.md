@@ -72,3 +72,23 @@ Everything below was hit and fixed in production on 4× DGX Spark (switchless ri
     name; (b) build the target string via `chr()` concatenation or the probe's
     own `python -c` cmdline matches itself and reports healthy even when the
     engine is dead.
+17. **Chunked prefill starves in-flight decode ("new session enters → decode
+    drops to single digits").** With `long_prefill_token_threshold=0` (default)
+    and chunked prefill, an entering session's prefill consumes the whole
+    per-step token budget every step; in-flight sessions get zero decode budget
+    for the entire prefill duration. Measured on our ring: worst inter-token
+    latency 3078ms (≈0.33 tok/s instantaneous) while a 20K cache-miss prompt
+    prefilled. Same root cause as MiaAI-Lab
+    deepseek-v4-flash-dspark-2x-dgx-spark#27 (their v1 scheduler also never
+    reads `max_num_partial_prefills`). Fix: `--long-prefill-token-threshold
+    1024` (upstream uses the same value). ITL peak 3078→666ms; concurrency
+    benchmark c6/c8 +78~82% (see benchmarks.md retest).
+18. **"decode collapses at long context" is usually a measurement artifact,
+    not a kernel bug.** Wall-time/out-token (or the engine's `Avg generation
+    throughput` line) amortizes TTFT into "decode speed" — a 22K-context
+    request with 7–9s TTFT reads as "7 tok/s" while streaming per-token
+    measurement shows 40+ tok/s. Before hunting kernel bugs (e.g. flashinfer
+    autotuner issues), always re-measure with streamed token timestamps,
+    both single-stream and with a concurrent prefill injected.
+并发 prefill 饥饿与「wall/out 口径假象」：新会话进入掉速先查调度节流参数，
+别急着归因 kernel；任何 decode 崩塌结论必须流式逐 token + 并发注入复核。
