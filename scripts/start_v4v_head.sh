@@ -46,6 +46,7 @@ SERVE_CMD="unset NCCL_IB_ADDR_RANGE NCCL_IB_ADDR_FAMILY NCCL_IB_ROCE_VERSION_NUM
     exec /opt/env/bin/vllm serve /models \
       --hf-overrides '{\"architectures\":[\"DeepseekV4VForConditionalGeneration\"]}' \
       --served-model-name deepseek-v4-flash-vision-exp \
+      --api-key Dgxdual \
       --host 0.0.0.0 --port 8888 \
       --trust-remote-code \
       --tensor-parallel-size 4 --pipeline-parallel-size 1 \

@@ -92,3 +92,11 @@ Everything below was hit and fixed in production on 4× DGX Spark (switchless ri
     both single-stream and with a concurrent prefill injected.
 并发 prefill 饥饿与「wall/out 口径假象」：新会话进入掉速先查调度节流参数，
 别急着归因 kernel；任何 decode 崩塌结论必须流式逐 token + 并发注入复核。
+19. **Serving unauthenticated on 0.0.0.0.** vLLM's `--api-key` is opt-in:
+    without it every `/v1/*` path answers with 200 for any caller. On a LAN
+    any device can consume or abuse the engine. Fix: `--api-key <value>`
+    (downstreams must then send the key; `/health` and `/metrics` stay
+    unauthenticated — probes/dashboards keep working). The default value in
+    these scripts (`Dgxdual`) is a local convention — change it for your
+    network and sync every consumer (portal, dashboards, hermes agents).
+`--api-key` 是 opt-in：不加则 /v1/* 对任何调用者 200。务必设置，且下游同步换 key。
